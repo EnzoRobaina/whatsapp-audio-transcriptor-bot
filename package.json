@@ -1,0 +1,22 @@
+{
+  "name": "whatsapp-audio-transcriptor-bot",
+  "version": "1.0.0",
+  "description": "A client and bot capable of transcripting received audios, using whatsapp-web.js",
+  "main": "index.js",
+  "repository": "https://github.com/EnzoRobaina/whatsapp-audio-transcriptor-bot",
+  "author": "EnzoRobaina",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "whatsapp-web.js": "^1.17.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.25.0",
+    "gts": "^3.1.1",
+    "typescript": "^4.8.4"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && node build/index.js"
+  }
+}
