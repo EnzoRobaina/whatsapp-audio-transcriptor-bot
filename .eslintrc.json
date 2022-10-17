@@ -1,0 +1,15 @@
+{
+    "extends": "./node_modules/gts/",
+    "rules": {
+      "node/no-extraneous-import": "off",
+      "node/no-unpublished-import": "off",
+      "node/no-extraneous-require": "off"
+    },
+    "ignorePatterns": ["build/**"],
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ]
+  }

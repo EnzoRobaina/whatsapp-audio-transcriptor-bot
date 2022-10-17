@@ -1,0 +1,25 @@
+{
+  "extends": "./node_modules/gts/tsconfig-google.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "target": "es6",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "outDir": "build",
+    "resolveJsonModule": true,
+    "lib": [
+      "DOM"
+    ],
+    "experimentalDecorators": true,
+    "skipDefaultLibCheck": true
+  },
+  "lib": [
+    "es2015"
+  ],
+  "exclude": [
+    "node_modules",
+    ".npm",
+    "build"
+  ]
+}
