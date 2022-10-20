@@ -108,3 +108,5 @@ build/
 .wwebjs_auth/
 
 qrcode.png
+
+.vscode/
