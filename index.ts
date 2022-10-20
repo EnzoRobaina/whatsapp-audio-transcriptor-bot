@@ -1,33 +1,56 @@
 import WAWebJS, {Client, LocalAuth, MessageTypes} from 'whatsapp-web.js'
 import qrcode from 'qrcode-terminal'
 import WebSocket from 'ws'
+import {toFile} from 'qrcode'
 
 const client = new Client({authStrategy: new LocalAuth()})
+let isClientInitialized = false
 
 require('dotenv').config()
 
 const wsUrl = `ws://localhost:${process.env.WS_PORT ?? 3333}`
 
-const ws = new WebSocket(wsUrl, {})
+let ws = new WebSocket(wsUrl, {})
 
-ws.addEventListener('error', e => {
-  console.log(`connection failed because ${e.message}`)
+ws.addEventListener('error', async e => {
+  console.log(`connection failed because ${e.message}, will try again in 5s`)
+  await delay(5000)
+
+  ws = new WebSocket(wsUrl, {})
 })
 
-ws.addEventListener('open', () => {
+ws.addEventListener('open', async () => {
   console.log(`connected to ws at ${wsUrl}`)
-  ws.send('ping')
+
+  await client.initialize()
 })
 
-ws.addEventListener('close', ({reason}) => {
-  console.log(`disconnected from because ${reason}`)
+ws.addEventListener('close', async reason => {
+  console.log(`disconnected from because ${JSON.stringify(reason)}`)
+
+  if (isClientInitialized) {
+    await client.destroy()
+
+    process.exit(1)
+  }
 })
 
-type Payload = {
-  data: string
-  mimetype?: string
-  chatId: string
-  messageId: string
+const sendMessage = async (
+  content: WAWebJS.MessageContent,
+  chat: WAWebJS.Chat,
+  options?: WAWebJS.MessageSendOptions | undefined
+): Promise<WAWebJS.Message> => {
+  await client.sendPresenceAvailable()
+  await delay(randomIn(1000, 2000))
+
+  await chat.sendStateTyping()
+
+  const msg = await chat.sendMessage(content, options)
+
+  await chat.clearState()
+  await client.sendPresenceUnavailable()
+
+  return msg
 }
 
 type WsMessage = {
@@ -51,20 +74,26 @@ ws.addEventListener('message', async ({data, ...e}: any) => {
     _data = data
   }
 
-  console.log({_data})
+  if (!_data) {
+    return
+  }
 
-  if (
-    typeof _data === 'object' &&
-    _data?.event === 'reply_with_transcription'
-  ) {
+  if (typeof _data === 'object' && _data.event === 'reply_with_transcription') {
     const {payload} = _data as WsTranscriptData
+
+    if (!payload) {
+      console.error('no payload received')
+      return
+    }
 
     const chat = await client.getChatById(payload.chatId)
 
-    await delay(randomIn(125, 500))
-    await chat.sendStateTyping()
+    if (!chat) {
+      console.error(`could not find chat ${payload.chatId}`)
+      return
+    }
 
-    const message = await chat.sendMessage(payload.transcript, {
+    await sendMessage(payload.transcript, chat, {
       quotedMessageId: payload.messageId,
     })
   } else {
@@ -75,10 +104,12 @@ ws.addEventListener('message', async ({data, ...e}: any) => {
 client.on('qr', qr => {
   console.log(`got qr at ${new Date().toISOString()}`)
   qrcode.generate(qr, {small: true})
+  toFile('qrcode.png', qr)
 })
 
 client.on('ready', () => {
-  console.log('Client is ready!')
+  console.log('client is ready')
+  isClientInitialized = true
 })
 
 const isAudio = (msg: WAWebJS.Message) =>
@@ -96,7 +127,7 @@ client.on('message', async msg => {
       const media = await msg.downloadMedia()
 
       if (media === undefined) {
-        throw new Error('Got undefined media.')
+        throw new Error('got undefined media.')
       }
 
       const {data, mimetype} = media
@@ -108,21 +139,21 @@ client.on('message', async msg => {
             data,
             mimetype,
             messageId: msg.id._serialized,
-            chatId: chat.id._serialized,
+            chatId: msg.from,
           },
         })
       )
+
+      console.log('sent data to ws')
     } catch (e) {
       console.error(e)
 
-      await delay(randomIn(125, 500))
-      await chat.sendStateTyping()
-
-      await msg.reply(`Error while downloading media\n${e}`)
+      await sendMessage('failed to process media', chat, {
+        quotedMessageId: msg.id._serialized,
+      })
+      await msg.react('👎')
     }
   } else {
     console.log(`got message with body: ${msg.body}`)
   }
 })
-
-client.initialize()
