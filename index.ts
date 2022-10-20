@@ -14,9 +14,6 @@ let ws = new WebSocket(wsUrl, {})
 
 ws.addEventListener('error', async e => {
   console.log(`connection failed because ${e.message}, will try again in 5s`)
-  await delay(5000)
-
-  ws = new WebSocket(wsUrl, {})
 })
 
 ws.addEventListener('open', async () => {
@@ -26,12 +23,12 @@ ws.addEventListener('open', async () => {
 })
 
 ws.addEventListener('close', async reason => {
-  console.log(`disconnected from because ${JSON.stringify(reason)}`)
+  console.log(`disconnected from ws`)
 
   if (isClientInitialized) {
     await client.destroy()
 
-    process.exit(1)
+    process.exit(0)
   }
 })
 
@@ -59,6 +56,7 @@ type WsMessage = {
 
 type WsTranscriptData = {
   payload: {
+    error?: string
     transcript: string
     chatId: string
     messageId: string
@@ -78,7 +76,7 @@ ws.addEventListener('message', async ({data, ...e}: any) => {
     return
   }
 
-  if (typeof _data === 'object' && _data.event === 'reply_with_transcription') {
+  if (typeof _data === 'object') {
     const {payload} = _data as WsTranscriptData
 
     if (!payload) {
@@ -93,9 +91,19 @@ ws.addEventListener('message', async ({data, ...e}: any) => {
       return
     }
 
-    await sendMessage(payload.transcript, chat, {
-      quotedMessageId: payload.messageId,
-    })
+    if (_data.event === 'reply_with_transcription') {
+      await sendMessage(payload.transcript, chat, {
+        quotedMessageId: payload.messageId,
+      })
+    } else if (_data.event === 'reply_with_error') {
+      await sendMessage(
+        '❌ Error: ' + (payload.error ?? 'error while transcribing'),
+        chat,
+        {
+          quotedMessageId: payload.messageId,
+        }
+      )
+    }
   } else {
     console.log(_data)
   }
@@ -148,7 +156,7 @@ client.on('message', async msg => {
     } catch (e) {
       console.error(e)
 
-      await sendMessage('failed to process media', chat, {
+      await sendMessage('❌ Error: failed to process media', chat, {
         quotedMessageId: msg.id._serialized,
       })
       await msg.react('👎')
