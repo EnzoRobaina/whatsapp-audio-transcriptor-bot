@@ -8,6 +8,7 @@ websockets = "*"
 python-dotenv = "*"
 flake8 = "*"
 black = "*"
+whisper = {git = "https://github.com/openai/whisper.git"}
 
 [dev-packages]
 

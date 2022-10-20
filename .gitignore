@@ -110,3 +110,5 @@ build/
 qrcode.png
 
 .vscode/
+
+temp/
